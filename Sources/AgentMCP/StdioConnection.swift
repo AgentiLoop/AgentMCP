@@ -101,7 +101,17 @@ final class StdioConnection: @unchecked Sendable, MCPConnection {
             pending[id] = continuation
             lock.unlock()
 
-            writer.write(message)
+            // write(contentsOf:) throws on a broken pipe instead of raising
+            // an uncatchable NSException like the ObjC write(_:) does.
+            do {
+                try writer.write(contentsOf: message)
+            } catch {
+                lock.lock()
+                let cont = pending.removeValue(forKey: id)
+                lock.unlock()
+                cont?.resume(throwing: MCPClientError.connectionFailed("Write failed: \(error.localizedDescription)"))
+                return
+            }
 
             // Timeout after 15 minutes (MCP tools like domain checks can be slow)
             DispatchQueue.global().asyncAfter(deadline: .now() + 900) { [weak self] in
@@ -129,7 +139,7 @@ final class StdioConnection: @unchecked Sendable, MCPConnection {
         var message = data
         message.append(contentsOf: [UInt8(ascii: "\n")])
 
-        writer.write(message)
+        try writer.write(contentsOf: message)
     }
 
     var isAlive: Bool { process.isRunning }
