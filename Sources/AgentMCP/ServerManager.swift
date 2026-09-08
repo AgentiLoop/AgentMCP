@@ -99,37 +99,21 @@ public actor ServerManager {
         return servers[index]
     }
 
-    /// Enable a server
+    /// Enable a server (transport settings preserved)
     public func enableServer(_ serverId: UUID) throws {
-        guard let index = serverIndex[serverId] else {
-            throw ServerManagerError.serverNotFound
-        }
-        let config = servers[index]
-        servers[index] = MCPClient.ServerConfig(
-            id: config.id,
-            name: config.name,
-            command: config.command,
-            arguments: config.arguments,
-            env: config.env,
-            enabled: true
-        )
-        try saveServers()
+        try setEnabled(true, for: serverId)
     }
 
-    /// Disable a server
+    /// Disable a server (transport settings preserved)
     public func disableServer(_ serverId: UUID) throws {
+        try setEnabled(false, for: serverId)
+    }
+
+    private func setEnabled(_ enabled: Bool, for serverId: UUID) throws {
         guard let index = serverIndex[serverId] else {
             throw ServerManagerError.serverNotFound
         }
-        let config = servers[index]
-        servers[index] = MCPClient.ServerConfig(
-            id: config.id,
-            name: config.name,
-            command: config.command,
-            arguments: config.arguments,
-            env: config.env,
-            enabled: false
-        )
+        servers[index] = servers[index].with(enabled: enabled)
         try saveServers()
     }
 

@@ -123,6 +123,36 @@ final class MCPClientTests: XCTestCase {
         XCTAssertEqual(decoded.autoStart, original.autoStart)
     }
 
+    func testWithEnabledPreservesHTTPTransport() {
+        let http = MCPClient.ServerConfig(
+            name: "Toggle",
+            url: "https://api.example.com/mcp",
+            headers: ["X-API-Key": "abc123"],
+            sseEndpoint: "/sse", httpEndpoint: "/mcp",
+            enabled: true, autoStart: false
+        )
+        let off = http.with(enabled: false)
+        XCTAssertFalse(off.enabled)
+        XCTAssertEqual(off.id, http.id)
+        XCTAssertTrue(off.isHTTP)
+        XCTAssertEqual(off.url, http.url)
+        XCTAssertEqual(off.headers, http.headers)
+        XCTAssertEqual(off.sseEndpoint, "/sse")
+        XCTAssertEqual(off.httpEndpoint, "/mcp")
+        XCTAssertEqual(off.autoStart, false)
+        XCTAssertTrue(off.with(enabled: true).enabled)
+    }
+
+    func testDecodePlainMCPJSONWithoutMetadata() throws {
+        let json = #"{"transport":"stdio","command":"/bin/echo","args":["hi"]}"#
+        let decoded = try JSONDecoder().decode(MCPClient.ServerConfig.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.command, "/bin/echo")
+        XCTAssertEqual(decoded.arguments, ["hi"])
+        XCTAssertEqual(decoded.name, "")
+        XCTAssertTrue(decoded.enabled)
+        XCTAssertTrue(decoded.autoStart)
+    }
+
     func testHTTPServerConfigDefaultHeaders() {
         let config = MCPClient.ServerConfig(
             name: "NoHeaders",

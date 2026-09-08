@@ -226,8 +226,11 @@ final class HTTPConnection: @unchecked Sendable, MCPConnection {
             for (key, value) in customHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
-            let task = session.dataTask(with: request)
-            task.resume()
+            // Use a throwaway session: `session.invalidateAndCancel()` below
+            // would cancel this DELETE before it ever left the process.
+            let closer = URLSession(configuration: .ephemeral)
+            closer.dataTask(with: request).resume()
+            closer.finishTasksAndInvalidate()
         }
 
         session.invalidateAndCancel()

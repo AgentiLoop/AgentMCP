@@ -22,7 +22,7 @@ public actor MCPClient {
         public let sseEndpoint: String?
         public let httpEndpoint: String?
         // Common
-        public let enabled: Bool
+        public private(set) var enabled: Bool
         public let autoStart: Bool
 
         /// True if this server uses HTTP/HTTPS transport
@@ -58,19 +58,31 @@ public actor MCPClient {
             self.enabled = enabled; self.autoStart = autoStart
         }
 
-        // MARK: - Codable (MCP-standard fields)
+        /// Copy of this config with `enabled` changed; transport fields are preserved.
+        public func with(enabled: Bool) -> ServerConfig {
+            var copy = self
+            copy.enabled = enabled
+            return copy
+        }
+
+        // MARK: - Codable (MCP-standard fields + Agent metadata)
+        //
+        // `transport/command/args/env/url/headers/*Endpoint` follow the MCP
+        // `mcpServers` shape. `id/name/enabled/autoStart` are Agent-side metadata:
+        // written on encode so `ServerManager` round-trips losslessly, optional on
+        // decode so plain MCP JSON (no metadata) still parses.
 
         private enum CodingKeys: String, CodingKey {
             case transport, command, args, env, url, headers
             case sseEndpoint, httpEndpoint
+            case id, name, enabled, autoStart
         }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            let transport = try c.decodeIfPresent(String.self, forKey: .transport)
 
-            id = UUID()
-            name = ""
+            id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+            name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
 
             command = try c.decodeIfPresent(String.self, forKey: .command) ?? ""
             arguments = try c.decodeIfPresent([String].self, forKey: .args) ?? []
@@ -80,17 +92,16 @@ public actor MCPClient {
             sseEndpoint = try c.decodeIfPresent(String.self, forKey: .sseEndpoint)
             httpEndpoint = try c.decodeIfPresent(String.self, forKey: .httpEndpoint)
 
-            // If transport is explicitly "http"/"https" with a url, clear command
-            if let transport, (transport == "http" || transport == "https"), url != nil {
-                _ = command // command stays empty for HTTP
-            }
-
-            enabled = true
-            autoStart = true
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+            autoStart = try c.decodeIfPresent(Bool.self, forKey: .autoStart) ?? true
         }
 
         public func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(id, forKey: .id)
+            try c.encode(name, forKey: .name)
+            try c.encode(enabled, forKey: .enabled)
+            try c.encode(autoStart, forKey: .autoStart)
             if let url, !url.isEmpty {
                 try c.encode("http", forKey: .transport)
                 try c.encode(url, forKey: .url)
@@ -203,7 +214,16 @@ public actor MCPClient {
         // initialize flow below is identical for both transports.
         if let legacy = connection as? LegacyHTTPSSEConnection {
             do {
-                try await legacy.connectAndDiscoverEndpoint()
+                // Bounded: a server that never sends `endpoint` must not hang addServer.
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await legacy.connectAndDiscoverEndpoint() }
+                    group.addTask {
+                        try await Task.sleep(for: .seconds(30))
+                        throw MCPClientError.connectionFailed("SSE endpoint handshake for \(config.name) timed out after 30s")
+                    }
+                    try await group.next()
+                    group.cancelAll()
+                }
             } catch {
                 connection.disconnect()
                 connections.removeValue(forKey: config.id)

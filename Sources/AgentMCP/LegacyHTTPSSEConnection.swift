@@ -76,7 +76,9 @@ final class LegacyHTTPSSEConnection: @unchecked Sendable, MCPConnection {
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     /// Background task that owns the long-lived SSE GET stream.
-    private var sseTask: Task<Void, Never>?
+    /// The long-lived GET stream. Held so `disconnect()` can cancel the
+    /// actual URLSession task (a wrapping `Task.cancel()` would not reach it).
+    private var sseDataTask: URLSessionDataTask?
 
     // MARK: - Init / connect
 
@@ -106,9 +108,7 @@ final class LegacyHTTPSSEConnection: @unchecked Sendable, MCPConnection {
     func connectAndDiscoverEndpoint() async throws {
         // Spawn the background reader task. It will populate `messageURL`
         // when the server emits the `endpoint` event.
-        sseTask = Task { [weak self] in
-            await self?.runSSEStream()
-        }
+        startSSEStream()
 
         // Wait for the endpoint event. Race-safe: the SSE reader may have
         // ALREADY received and stashed `pendingEndpoint` before we get
@@ -135,7 +135,7 @@ final class LegacyHTTPSSEConnection: @unchecked Sendable, MCPConnection {
 
     // MARK: - SSE stream reader
 
-    private func runSSEStream() async {
+    private func startSSEStream() {
         var request = URLRequest(url: sseURL)
         request.httpMethod = "GET"
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
@@ -162,6 +162,7 @@ final class LegacyHTTPSSEConnection: @unchecked Sendable, MCPConnection {
         }
 
         let task = sseSession.dataTask(with: request)
+        sseDataTask = task
         task.resume()
     }
 
@@ -406,8 +407,8 @@ final class LegacyHTTPSSEConnection: @unchecked Sendable, MCPConnection {
     }
 
     func disconnect() {
-        sseTask?.cancel()
-        sseTask = nil
+        sseDataTask?.cancel()
+        sseDataTask = nil
         fail(MCPClientError.connectionFailed("Legacy HTTP+SSE connection closed by client"))
         sseSession.invalidateAndCancel()
         postSession.invalidateAndCancel()
