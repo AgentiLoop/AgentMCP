@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "AgentMCP",
-    platforms: [.macOS(.v26)],
+    platforms: [.macOS(.v14)],
     products: [
         // MCP Client library - embedded in Agent app to connect TO third-party MCP servers
         .library(name: "AgentMCP", targets: ["AgentMCP"]),
