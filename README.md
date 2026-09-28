@@ -11,7 +11,7 @@ A lightweight Swift MCP (Model Context Protocol) client for macOS. Connect to an
 - **Resource reading** — read resources from MCP servers
 - **Multi-server** — manage connections to multiple servers simultaneously
 - **Zero dependencies** — pure Swift, no external packages
-- **macOS 26+** / Swift 6.2
+- **macOS 14+** / Swift 6.4
 
 ## Installation
 
@@ -19,7 +19,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AgentiLoop/AgentMCP.git", from: "1.6.7"),
+    .package(url: "https://github.com/AgentiLoop/AgentMCP.git", from: "1.6.10"),
 ]
 ```
 
@@ -66,6 +66,14 @@ let result = try await client.callTool(
 | `ServerManager.swift` | Multi-server connection manager |
 | `JSONValue.swift` | Type-safe JSON encoding/decoding |
 | `MCPClientError.swift` | Error types |
+
+## Part of AgentiLoop Agent!
+
+AgentMCP is one of the open-source building blocks of **[AgentiLoop Agent!](https://github.com/AgentiLoop/Agent)**, the native AI agent for macOS 14.6+ on Apple Silicon and Intel. Agent! codes in Xcode, drives any Mac app, runs shell as you or as root, and works with 23 LLM providers plus on-device Apple Intelligence.
+
+🌐 [agentiloop.ai](https://agentiloop.ai/) · ⬇️ [Download Agent!](https://github.com/AgentiLoop/Agent/releases/latest) · 🍺 `brew install --cask agentiloop-agent` · 💻 CLIs: [Rust](https://github.com/AgentiLoop/AgentiLoopCLI) / [Go](https://github.com/AgentiLoop/AgentiLoopGo)
+
+**More Agent! packages:** [AgentAccess](https://github.com/AgentiLoop/AgentAccess) · [AgentAudit](https://github.com/AgentiLoop/AgentAudit) · [AgentColorSyntax](https://github.com/AgentiLoop/AgentColorSyntax) · [AgentD1F](https://github.com/AgentiLoop/AgentD1F) · [AgentEventBridges](https://github.com/AgentiLoop/AgentEventBridges) · [AgentLLM](https://github.com/AgentiLoop/AgentLLM) · [AgentSwift](https://github.com/AgentiLoop/AgentSwift) · [AgentTerminalNeo](https://github.com/AgentiLoop/AgentTerminalNeo) · [AgentTools](https://github.com/AgentiLoop/AgentTools) · [AgentScripts](https://github.com/AgentiLoop/AgentScripts)
 
 ## License
 
